@@ -7,8 +7,9 @@
     "src": "src"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "release": "tsc"
+    "watch": "tsc -w -p tsconfig.json",
+		"compile": "tsc -p tsconfig.json",
+		"prepublishOnly": "npm run compile"
   },
   "repository": {
     "type": "git",

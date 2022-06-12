@@ -1,12 +1,11 @@
 {
-  "include": ["./src/**/*"],
-  "compilerOptions": {
-    "outDir": "./dist/",
-    "module": "esnext",
-    "moduleResolution": "node",
-    "target": "es2019",
-    "lib": ["dom", "es5", "es2019"],
-    "strict": true,
-    "declaration": true,
-  },
+	"compilerOptions": {
+		"module": "commonjs",
+		"outDir": "out",
+		"target": "ES2022",
+		"declaration": true,
+		"strict": true
+	},
+	"include": ["src"],
+	"exclude": ["node_modules"]
 }
