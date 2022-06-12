@@ -1,7 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 import { onUnexpectedError } from '../support/utils/errors';
@@ -10,7 +6,6 @@ import { equals as equalArray } from '../support/utils/arrays';
 import * as resources from '../support/utils/resources';
 
 import { LanguageId, StandardTokenType, FontStyle, ColorId, MetadataConsts } from '../support/encodedTokenAttributes';
-import { LANGUAGES, LANGUAGE_NAMES } from '../common/TMGrammars';
 import { ITextMateService } from './textMate';
 import type { IGrammar, StackElement, IOnigLib, IRawTheme } from 'vscode-textmate';
 import { Disposable, IDisposable, dispose } from '../support/utils/lifecycle';
@@ -19,6 +14,8 @@ import { missingTMGrammarErrorMessage, TMGrammarFactory } from '../common/TMGram
 import { TMTokenization } from '../common/TMTokenization';
 import { ColorThemeData } from '../support/colorThemeData';
 import { ITextMateThemingRule, IWorkbenchColorTheme } from '../support/workbenchThemeService';
+import { IExtensionManifest } from '../support/extensions';
+import { IExtensionValue, ITMSyntaxExtensionPoint } from '../common/TMGrammars';
 
 
 export abstract class AbstractTextMateService extends Disposable implements ITextMateService {
@@ -35,10 +32,33 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 	protected _currentTheme: IRawTheme | null;
 	protected _currentTokenColorMap: string[] | null;
 
+	private _languages: IExtensionValue<ITMSyntaxExtensionPoint[]>[][];
+	private _languageNames: string[];
+
 	constructor(
 		private readonly _colorTheme: ColorThemeData,
+		private readonly _extensions: { location: string; manifest: IExtensionManifest }[]
 	) {
 		super();
+
+		this._languages = _extensions.reduce((acc, entry) => {
+			acc = [
+				...acc,
+				[
+					{
+						extensionLocation: monaco.Uri.parse(entry.location),
+						value: (entry.manifest.contributes?.grammars || []) as ITMSyntaxExtensionPoint[]
+					}
+				]
+			]
+			return acc;
+		}, [] as IExtensionValue<ITMSyntaxExtensionPoint[]>[][]);
+		
+		this._languageNames = this._languages.reduce((acc, x) => {
+			x.forEach(x => x.value.forEach(x => x.language && acc.push(x.language)));
+			return acc;
+		}, [] as string[]);
+
 		this._encounteredLanguages = [];
 
 		this._grammarDefinitions = null;
@@ -51,7 +71,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 		this._tokenizersRegistrations = dispose(this._tokenizersRegistrations);
 
 		this._grammarDefinitions = [];
-		for (const extensions of LANGUAGES) {
+		for (const extensions of this._languages) {
 			for (const extension of extensions) {
 				const grammars = extension.value;
 				for (const grammar of grammars) {
@@ -67,7 +87,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 								// never hurts to be too careful
 								continue;
 							}
-							if (LANGUAGE_NAMES.includes(language)) {
+							if (this._languageNames.includes(language)) {
 								embeddedLanguages[scope] = monaco.languages.getEncodedLanguageId(language);
 							}
 						}
@@ -93,7 +113,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 					}
 
 					let validLanguageId: string | null = null;
-					if (grammar.language && LANGUAGE_NAMES.includes(grammar.language)) {
+					if (grammar.language && this._languageNames.includes(grammar.language)) {
 						validLanguageId = grammar.language;
 					}
 
@@ -167,7 +187,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 	private _createFactory(languageId: string): monaco.languages.TokensProviderFactory {
 		return {
 			create: async (): Promise<monaco.languages.EncodedTokensProvider | null> => {
-				if (!LANGUAGE_NAMES.includes(languageId)) {
+				if (!this._languageNames.includes(languageId)) {
 					return null;
 				}
 				if (!this._canCreateGrammarFactory()) {
@@ -187,7 +207,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 					const tokenization = new TMTokenization(r.grammar, r.initialState, r.containsEmbeddedLanguages);
 					tokenization.onDidEncounterLanguage((encodedLanguageId) => {
 						if (!this._encounteredLanguages[encodedLanguageId]) {
-							const languageId = LANGUAGE_NAMES.find(name => monaco.languages.getEncodedLanguageId(name) === encodedLanguageId)!;
+							const languageId = this._languageNames.find(name => monaco.languages.getEncodedLanguageId(name) === encodedLanguageId)!;
 							this._encounteredLanguages[encodedLanguageId] = true;
 							this._onDidEncounterLanguage.fire(languageId);
 						}
@@ -244,7 +264,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 	}
 
 	public async createGrammar(languageId: string): Promise<IGrammar | null> {
-		if (!LANGUAGE_NAMES.includes(languageId)) {
+		if (!this._languageNames.includes(languageId)) {
 			return null;
 		}
 		const grammarFactory = await this._getOrCreateGrammarFactory();
