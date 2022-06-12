@@ -1,0 +1,30 @@
+{
+  "name": "monaco-vscode-textmate-theme",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "src": "src"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ckorherr/monaco-vscode-textmate-theme.git"
+  },
+  "author": "CKO",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ckorherr/monaco-vscode-textmate-theme/issues"
+  },
+  "homepage": "https://github.com/ckorherr/monaco-vscode-textmate-theme#readme",
+  "dependencies": {
+    "monaco-editor": "0.33.0",
+    "vscode-oniguruma": "1.6.1",
+    "vscode-textmate": "6.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~4.6.2"
+  }
+}
