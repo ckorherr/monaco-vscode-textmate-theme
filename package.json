@@ -9,7 +9,8 @@
   "scripts": {
     "watch": "tsc -w -p tsconfig.json",
 		"compile": "tsc -p tsconfig.json",
-		"prepublishOnly": "npm run compile"
+		"prepublishOnly": "npm run compile",
+    "prepare": "npm run compile"
   },
   "repository": {
     "type": "git",
