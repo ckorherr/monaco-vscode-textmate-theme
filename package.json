@@ -1,6 +1,6 @@
 {
-  "name": "monaco-vscode-textmate-theme",
-  "version": "1.0.0",
+  "name": "monaco-vscode-textmate-theme-test",
+  "version": "1.0.4",
   "description": "",
   "main": "out/index.js",
   "types": "out/index.d.ts",

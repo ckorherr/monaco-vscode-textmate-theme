@@ -17,7 +17,6 @@ import { ITextMateThemingRule, IWorkbenchColorTheme } from '../support/workbench
 import { IExtensionManifest } from '../support/extensions';
 import { IExtensionValue, ITMSyntaxExtensionPoint } from '../common/TMGrammars';
 
-
 export abstract class AbstractTextMateService extends Disposable implements ITextMateService {
 	public _serviceBrand: undefined;
 
@@ -32,16 +31,36 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 	protected _currentTheme: IRawTheme | null;
 	protected _currentTokenColorMap: string[] | null;
 
-	private _languages: IExtensionValue<ITMSyntaxExtensionPoint[]>[][];
-	private _languageNames: string[];
-
-	constructor(
-		private readonly _colorTheme: ColorThemeData,
-		private readonly _extensions: { location: string; manifest: IExtensionManifest }[]
-	) {
+	private _languages: IExtensionValue<ITMSyntaxExtensionPoint[]>[][] = [];
+	private _languageNames: string[] = [];
+  private _colorTheme: ColorThemeData | null = null;
+	
+	constructor() {
 		super();
 
-		this._languages = _extensions.reduce((acc, entry) => {
+		this._encounteredLanguages = [];
+
+		this._grammarDefinitions = null;
+		this._grammarFactory = null;
+		this._tokenizersRegistrations = [];
+
+		this._currentTheme = null;
+		this._currentTokenColorMap = null;
+
+		this._tokenizersRegistrations = dispose(this._tokenizersRegistrations);
+	}
+
+	async init(extensions: string[],) {
+		this._grammarDefinitions = [];
+
+		const manifests: { location: string; manifest: IExtensionManifest; }[] = await Promise.all(
+			extensions.map(async location => {
+				const manifest = await fetch(resources.joinPath(monaco.Uri.parse(location), 'package.json').path).then(res => res.json());
+				return { location, manifest };
+			})
+		);
+		
+		this._languages = manifests.reduce((acc, entry) => {
 			acc = [
 				...acc,
 				[
@@ -59,18 +78,6 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 			return acc;
 		}, [] as string[]);
 
-		this._encounteredLanguages = [];
-
-		this._grammarDefinitions = null;
-		this._grammarFactory = null;
-		this._tokenizersRegistrations = [];
-
-		this._currentTheme = null;
-		this._currentTokenColorMap = null;
-
-		this._tokenizersRegistrations = dispose(this._tokenizersRegistrations);
-
-		this._grammarDefinitions = [];
 		for (const extensions of this._languages) {
 			for (const extension of extensions) {
 				const grammars = extension.value;
@@ -127,7 +134,7 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 						return array;
 					}
 
-					this._grammarDefinitions.push({
+					this._grammarDefinitions!.push({
 						location: grammarLocation,
 						language: validLanguageId ? validLanguageId : undefined,
 						scopeName: grammar.scopeName,
@@ -144,6 +151,14 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 				}
 			}
 		}
+	}
+
+	async setTheme(baseTheme: string, theme: string) {
+    this._colorTheme = ColorThemeData.createUnloadedTheme(
+      baseTheme,
+      monaco.Uri.parse(theme)
+    );
+    await this._colorTheme.ensureLoaded();
 
 		this._updateTheme(this._grammarFactory, this._colorTheme, true);
 		// this._register(this._themeService.onDidColorThemeChange(() => {
@@ -173,13 +188,13 @@ export abstract class AbstractTextMateService extends Disposable implements ITex
 		}
 
 		this._grammarFactory = new TMGrammarFactory({
-			logTrace: (msg: string) => console.trace(msg),
+			logTrace: (msg: string) => void 0,
 			logError: (msg: string, err: any) => console.error(msg, err),
 			readFile: (resource: monaco.Uri) => fetch(resource.path).then(r => r.text())
 		}, this._grammarDefinitions || [], vscodeTextmate, onigLib);
 		this._onDidCreateGrammarFactory(this._grammarDefinitions || []);
 
-		this._updateTheme(this._grammarFactory, this._colorTheme, true);
+		this._updateTheme(this._grammarFactory, this._colorTheme!, true);
 
 		return this._grammarFactory;
 	}
